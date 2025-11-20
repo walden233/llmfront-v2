@@ -1,0 +1,15 @@
+@use './reset.scss';
+
+:root {
+  --app-header-height: 56px;
+  --app-sidebar-width: 240px;
+}
+
+.app-page {
+  padding: 24px;
+}
+
+.text-muted {
+  color: #666;
+  font-size: 12px;
+}
