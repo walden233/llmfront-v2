@@ -16,4 +16,4 @@ export const fetchProfile = () => get<UserProfile>('/auth/me')
 
 export const changePassword = (payload: ChangePasswordRequest) => post<boolean>('/auth/change-password', payload)
 
-export const assignRole = (payload: AssignRoleRequest) => post<boolean>('/auth/assign-role', payload)
+export const assignRole = (payload: AssignRoleRequest) => post<boolean>('/users/assign-role', payload)

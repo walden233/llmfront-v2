@@ -9,10 +9,13 @@ import type { AssignRoleRequest, UserRole } from '@/types/auth'
 interface ListUsersParams {
   pageNum?: number
   pageSize?: number
+  role?: string
+  sortBy?: string
+  sortOrder?: string
 }
 export const listUsers = (params: ListUsersParams) => get<PageResult<User>>('/users', { params })
 
-export const assignRole = (payload: AssignRoleRequest) => post<boolean>('/auth/assign-role', payload)
+export const assignRole = (payload: AssignRoleRequest) => post<boolean>('/users/assign-role', payload)
 
 // --- Model Management ---
 

@@ -21,7 +21,10 @@
               <a-avatar>{{ message.role === 'user' ? authStore.username.slice(0, 2).toUpperCase() : 'AI' }}</a-avatar>
             </div>
             <div class="message-item__content">
-              <div class="message-item__bubble" v-html="renderMarkdown(message.content)"></div>
+              <div v-if="message.imageUrl">
+                <a-image :src="message.imageUrl" width="200" />
+              </div>
+              <div class="message-item__bubble" v-if="message.content" v-html="renderMarkdown(message.content)"></div>
             </div>
           </div>
           <div v-if="isResponding" class="message-item message-item--assistant">
@@ -37,13 +40,34 @@
         </div>
       </a-layout-content>
       <a-layout-footer class="input-area">
-        <a-textarea
-          v-model="userInput"
-          placeholder="输入消息..."
-          :auto-size="{ minRows: 1, maxRows: 5 }"
-          @keydown.enter.prevent="handleSend"
-        />
-        <a-button type="primary" @click="handleSend" :disabled="!userInput.trim() || isResponding">
+        <div class="input-area__upload">
+          <a-upload
+            :show-file-list="false"
+            :custom-request="handleImageUpload"
+            accept="image/*"
+          >
+            <template #upload-button>
+              <a-button>
+                <icon-upload />
+              </a-button>
+            </template>
+          </a-upload>
+        </div>
+        <div class="input-area__text">
+          <div v-if="uploadedImage" class="image-preview">
+            <a-image :src="uploadedImage" width="40" height="40" />
+            <a-button shape="circle" size="mini" class="image-preview__remove" @click="clearUploadedImage">
+              <icon-close />
+            </a-button>
+          </div>
+          <a-textarea
+            v-model="userInput"
+            placeholder="输入消息... (可上传图片进行多模态输入)"
+            :auto-size="{ minRows: 1, maxRows: 5 }"
+            @keydown.enter.prevent="handleSend"
+          />
+        </div>
+        <a-button type="primary" @click="handleSend" :disabled="(!userInput.trim() && !uploadedImage) || isResponding">
           发送
         </a-button>
       </a-layout-footer>
@@ -63,14 +87,15 @@
 import { ref, onMounted, nextTick, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { listModels } from '@/api/model'
-import { chatCompletion } from '@/api/proxy' // Changed import
+import { chatCompletion } from '@/api/proxy'
 import type { Model } from '@/types/model'
-import type { ChatMessage } from '@/types/chat'
+import type { ChatMessage, OpenAiMessage } from '@/types/chat'
 import { ElMessage } from 'element-plus'
 import { v4 as uuidv4 } from 'uuid'
 import MarkdownIt from 'markdown-it'
 import 'highlight.js/styles/github.css';
 import hljs from 'highlight.js';
+import { IconUpload, IconClose } from '@arco-design/web-vue/es/icon';
 
 const authStore = useAuthStore()
 const models = ref<Model[]>([])
@@ -81,6 +106,7 @@ const isResponding = ref(false)
 const messageContainer = ref<HTMLElement | null>(null)
 const isKeyModalVisible = ref(false)
 const sessionKeyInput = ref('')
+const uploadedImage = ref<string | null>(null)
 
 const md: MarkdownIt = new MarkdownIt({
   highlight: (str: string, lang: string) => {
@@ -109,18 +135,45 @@ watch(messages, () => scrollToBottom(), { deep: true })
 
 const fetchModels = async () => {
   try {
-    const { records } = await listModels({ status: '1', pageSize: 100 })
-    models.value = records
-    if (records.length > 0) {
-      selectedModel.value = records[0]!.modelIdentifier
+    const textPromise = listModels({ status: '1', capability: 'text-to-text', pageSize: 100 });
+    const imagePromise = listModels({ status: '1', capability: 'image-to-text', pageSize: 100 });
+
+    const [textResult, imageResult] = await Promise.all([textPromise, imagePromise]);
+
+    const allModels = [...textResult.records, ...imageResult.records];
+    const uniqueModels = Array.from(new Map(allModels.map(m => [m.id, m])).values());
+    
+    models.value = uniqueModels;
+    
+    if (uniqueModels.length > 0) {
+      selectedModel.value = uniqueModels[0]!.modelIdentifier;
     }
   } catch {
-    ElMessage.error('获取模型列表失败')
+    ElMessage.error('获取模型列表失败');
+  }
+};
+
+const handleImageUpload = (options: any) => {
+  const { file, onSuccess } = options
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    uploadedImage.value = e.target?.result as string
+    onSuccess()
+  }
+  reader.readAsDataURL(file)
+  return {
+    abort: () => {
+      uploadedImage.value = null
+    }
   }
 }
 
+const clearUploadedImage = () => {
+  uploadedImage.value = null
+}
+
 const handleSend = async () => {
-  if (!userInput.value.trim() || isResponding.value) return
+  if ((!userInput.value.trim() && !uploadedImage.value) || isResponding.value) return
   if (!authStore.sessionAccessKey) {
     ElMessage.warning('请先设置 Access Key')
     isKeyModalVisible.value = true
@@ -131,6 +184,7 @@ const handleSend = async () => {
     id: uuidv4(),
     role: 'user',
     content: userInput.value,
+    imageUrl: uploadedImage.value || undefined
   }
   messages.value.push(userMessage)
 
@@ -143,12 +197,35 @@ const handleSend = async () => {
   
   isResponding.value = true
   userInput.value = ''
+  uploadedImage.value = null
 
   try {
+    const apiMessages: OpenAiMessage[] = messages.value
+      .slice(0, -1) // Exclude the empty assistant message
+      .map(m => {
+        const content: any = [];
+        if (m.content) {
+          content.push({ type: 'text', text: m.content });
+        }
+        if (m.imageUrl) {
+          content.push({ type: 'image_url', image_url: { url: m.imageUrl } });
+        }
+        
+        // Ensure content is not empty
+        if (content.length === 0) {
+            content.push({ type: 'text', text: '' });
+        }
+
+        // If there's only an image, the content for OpenAI should be an array.
+        // If there's only text, it can be a string. Let's keep it consistent as an array.
+        return { role: m.role, content };
+      });
+
+
     const response = await chatCompletion(
       {
         model: selectedModel.value,
-        messages: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
+        messages: apiMessages,
         stream: false,
       },
       authStore.sessionAccessKey
@@ -161,7 +238,6 @@ const handleSend = async () => {
       if (typeof content === 'string') {
         textContent = content
       } else if (Array.isArray(content)) {
-        // Find the first text part in the content array
         const textPart = content.find(part => part.type === 'text')
         if (textPart && typeof textPart.text === 'string') {
           textContent = textPart.text
@@ -289,7 +365,34 @@ onMounted(() => {
   border-top: 1px solid #e5e6eb;
   background-color: #fff;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
+}
+
+.input-area__text {
+  flex: 1;
+  position: relative;
+}
+
+.image-preview {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  background: #fff;
+  padding: 2px;
+  border-radius: 4px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.2);
+}
+
+.image-preview__remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+}
+
+.input-area .a-textarea {
+  padding-left: 60px; /* Make space for image preview */
 }
 </style>

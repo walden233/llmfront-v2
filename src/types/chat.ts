@@ -5,6 +5,7 @@ export type ChatMessageRole = 'system' | 'user' | 'assistant' | 'tool'
 export interface ChatMessage {
   role: ChatMessageRole
   content: string
+  imageUrl?: string
   // For UI state
   id?: string
   loading?: boolean

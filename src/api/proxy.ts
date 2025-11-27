@@ -29,7 +29,7 @@ export const chatCompletion = async (payload: ChatCompletionRequest, accessKey: 
     `/v2/chat`,
     { ...payload, stream: false },
     {
-      baseURL: import.meta.env.VITE_API_BASE_URL,
+      baseURL: import.meta.env.VITE_SSE_BASE_URL,
       headers,
     }
   )

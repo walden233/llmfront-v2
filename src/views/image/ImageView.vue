@@ -3,8 +3,36 @@
     <el-card class="image-view__controls">
       <template #header>图像生成</template>
       <a-form :model="form" layout="vertical">
+        <a-form-item field="originImage" label="原始图像 (用于图像编辑)">
+          <a-upload
+            :show-file-list="false"
+            :custom-request="handleImageUpload"
+            accept="image/*"
+            list-type="picture-card"
+          >
+            <div v-if="originImage">
+              <img :src="originImage" style="width: 100%" />
+              <div class="arco-upload-list-picture-mask">
+                <icon-edit />
+              </div>
+            </div>
+            <div v-else class="arco-upload-trigger">
+               <div class="arco-upload-trigger-icon">
+                <icon-plus />
+              </div>
+              <div class="arco-upload-trigger-text">
+                上传图片
+              </div>
+            </div>
+          </a-upload>
+           <template #extra>
+            <a-button v-if="originImage" @click="clearOriginImage" size="small" type="text" status="danger">
+              <icon-delete /> 清除图像
+            </a-button>
+          </template>
+        </a-form-item>
         <a-form-item field="prompt" label="提示词">
-          <a-textarea v-model="form.prompt" placeholder="输入详细的图像描述..." :auto-size="{ minRows: 3, maxRows: 6 }" />
+          <a-textarea v-model="form.prompt" placeholder="输入详细的图像描述或编辑指令..." :auto-size="{ minRows: 3, maxRows: 6 }" />
         </a-form-item>
         <a-form-item field="model" label="选择模型">
           <a-select v-model="form.modelIdentifier" placeholder="选择一个图像生成模型">
@@ -45,6 +73,7 @@ import { listModels } from '@/api/model';
 import { generateImage } from '@/api/proxy';
 import type { Model } from '@/types/model';
 import { ElMessage } from 'element-plus';
+import { IconPlus, IconEdit, IconDelete } from '@arco-design/web-vue/es/icon';
 
 const authStore = useAuthStore();
 const models = ref<Model[]>([]);
@@ -52,6 +81,7 @@ const loading = ref(false);
 const generatedImageUrl = ref('');
 const isKeyModalVisible = ref(false);
 const sessionKeyInput = ref('');
+const originImage = ref<string | null>(null);
 
 const form = ref({
   prompt: '',
@@ -60,18 +90,48 @@ const form = ref({
 
 const fetchImageModels = async () => {
   try {
-    const { records } = await listModels({
+    const textToImagePromise = listModels({
       status: '1',
       capability: 'text-to-image',
       pageSize: 100,
     });
-    models.value = records;
-    if (records.length > 0) {
-      form.value.modelIdentifier = records[0]!.modelIdentifier;
+    const imageToImagePromise = listModels({
+      status: '1',
+      capability: 'image-to-image',
+      pageSize: 100,
+    });
+
+    const [textToImageResult, imageToImageResult] = await Promise.all([textToImagePromise, imageToImagePromise]);
+
+    const allModels = [...textToImageResult.records, ...imageToImageResult.records];
+    const uniqueModels = Array.from(new Map(allModels.map(m => [m.id, m])).values());
+
+    models.value = uniqueModels;
+    if (uniqueModels.length > 0) {
+      form.value.modelIdentifier = uniqueModels[0]!.modelIdentifier;
     }
   } catch {
     ElMessage.error('获取图像模型列表失败');
   }
+};
+
+const handleImageUpload = (options: any) => {
+  const { file, onSuccess } = options;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    originImage.value = e.target?.result as string;
+    onSuccess();
+  };
+  reader.readAsDataURL(file);
+  return {
+    abort: () => {
+      originImage.value = null;
+    }
+  };
+};
+
+const clearOriginImage = () => {
+  originImage.value = null;
 };
 
 const handleGenerate = async () => {
@@ -88,14 +148,20 @@ const handleGenerate = async () => {
   loading.value = true;
   generatedImageUrl.value = '';
   try {
+    const payload: any = {
+      prompt: form.value.prompt,
+      modelIdentifier: form.value.modelIdentifier,
+      options: { n: 1, size: '1024x1024' },
+    };
+    if (originImage.value) {
+      payload.originImage = { url: originImage.value };
+    }
+
     const response = await generateImage(
-      {
-        prompt: form.value.prompt,
-        modelIdentifier: form.value.modelIdentifier,
-        options: { n: 1, size: '1024x1024' },
-      },
+      payload,
       authStore.sessionAccessKey
     );
+
     if (response.imageUrls && response.imageUrls.length > 0) {
       if (response.imageUrls[0] !== undefined) {
         generatedImageUrl.value = response.imageUrls[0];
