@@ -28,17 +28,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-const metrics = ref([
-  { label: '在线模型', value: 0, desc: '来自模型管理接口' },
+const metrics = computed(() => [
+  { label: '账户角色', value: authStore.user?.role ?? 'N/A', desc: '当前用户的权限角色' },
   { label: '本月调用次数', value: 0, desc: '接入统计后展示' },
-  { label: '余额', value: authStore.user?.balance ?? 0, desc: '当前账户可用余额 (元)' },
+  {
+    label: '余额',
+    value: `¥${authStore.user?.balance?.toFixed(2) ?? '0.00'}`,
+    desc: '当前账户可用余额 (元)',
+  },
   { label: '活跃 Access Key', value: 0, desc: 'Access Key 列表统计' },
 ])
 </script>

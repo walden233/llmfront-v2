@@ -49,7 +49,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Fold, Expand, Histogram, Key, Tickets, Box } from '@element-plus/icons-vue'
+import {
+  Fold,
+  Expand,
+  Histogram,
+  Key,
+  Tickets,
+  Box,
+  ChatDotRound,
+  Picture,
+  Setting,
+  Service,
+  User,
+} from '@element-plus/icons-vue'
 import AppLogo from '@/components/common/AppLogo.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
@@ -69,9 +81,36 @@ const appStore = useAppStore()
 
 const rawMenus: MenuItem[] = [
   { name: 'Dashboard', label: '概览', icon: Histogram },
+  { name: 'Chat', label: '智能聊天', icon: ChatDotRound },
+  { name: 'Image', label: '图像生成', icon: Picture },
   { name: 'AccessKeys', label: 'Access Keys', icon: Key },
-  { name: 'Models', label: '模型管理', icon: Box, roles: ['ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN'], disabled: true },
-  { name: 'Orders', label: '订单管理', icon: Tickets, roles: ['ROLE_ROOT_ADMIN'], disabled: true },
+  { name: 'Orders', label: '我的订单', icon: Tickets },
+  { name: 'Models', label: '可用模型', icon: Box },
+  {
+    name: 'AdminModels',
+    label: '模型管理',
+    icon: Setting,
+    roles: ['ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN'],
+  },
+  {
+    name: 'AdminProviders',
+    label: '供应商管理',
+    icon: Service,
+    roles: ['ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN'],
+  },
+  {
+    name: 'AdminUsers',
+    label: '用户管理',
+    icon: User,
+    roles: ['ROLE_ROOT_ADMIN'],
+  },
+  {
+    name: 'AdminOrders',
+    label: '订单管理',
+    icon: Tickets,
+    roles: ['ROLE_ROOT_ADMIN'],
+    disabled: true,
+  },
 ]
 
 const visibleMenus = computed(() =>

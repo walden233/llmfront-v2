@@ -55,6 +55,76 @@ const routes: RouteRecordRaw[] = [
           title: 'Access Keys',
         },
       },
+      {
+        path: 'orders',
+        name: 'Orders',
+        component: () => import('@/views/orders/OrderList.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ROLE_USER', 'ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN'],
+          title: '我的订单',
+        },
+      },
+      {
+        path: 'models',
+        name: 'Models',
+        component: () => import('@/views/models/ModelList.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ROLE_USER', 'ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN'],
+          title: '可用模型',
+        },
+      },
+      {
+        path: 'chat',
+        name: 'Chat',
+        component: () => import('@/views/chat/ChatView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ROLE_USER', 'ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN'],
+          title: '智能聊天',
+        },
+      },
+      {
+        path: 'image',
+        name: 'Image',
+        component: () => import('@/views/image/ImageView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ROLE_USER', 'ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN'],
+          title: '图像生成',
+        },
+      },
+      {
+        path: 'admin/models',
+        name: 'AdminModels',
+        component: () => import('@/views/admin/models/AdminModelList.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN'],
+          title: '模型管理',
+        },
+      },
+      {
+        path: 'admin/providers',
+        name: 'AdminProviders',
+        component: () => import('@/views/admin/providers/ProviderList.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN'],
+          title: '供应商管理',
+        },
+      },
+      {
+        path: 'admin/users',
+        name: 'AdminUsers',
+        component: () => import('@/views/admin/users/UserList.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ROLE_ROOT_ADMIN'],
+          title: '用户管理',
+        },
+      },
     ],
   },
   {
