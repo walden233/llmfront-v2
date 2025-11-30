@@ -3,7 +3,7 @@ import type { PageResult } from '@/types/api'
 import type { Model } from '@/types/model'
 import type { Provider } from '@/types/provider'
 import type { User } from '@/types/user'
-import type { AssignRoleRequest, UserRole } from '@/types/auth'
+import type { AssignRoleRequest } from '@/types/auth'
 
 // --- User Management ---
 interface ListUsersParams {
