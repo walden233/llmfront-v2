@@ -2,6 +2,12 @@
   <div class="chat-view">
     <div class="chat-view__sidebar">
       <div class="chat-view__sidebar-header">
+        <p class="eyebrow">模型选择</p>
+        <h3>会话空间</h3>
+        <p class="text-muted">挑选合适的模型与提示风格，后续会话沿用。</p>
+      </div>
+      <div class="chat-view__sidebar-card">
+        <p class="chat-view__sidebar-label">首选模型</p>
         <a-select v-model="selectedModel" placeholder="选择模型">
           <a-option v-for="model in models" :key="model.modelIdentifier" :value="model.modelIdentifier">
             {{ model.displayName }}
@@ -9,11 +15,26 @@
         </a-select>
       </div>
       <div class="chat-view__sidebar-content">
-        <!-- Placeholder for chat history list -->
-        <p class="text-muted">会话列表即将推出。</p>
+        <div class="chat-view__history-card">
+          <p class="chat-view__sidebar-label">最近会话</p>
+          <p class="text-muted">会话列表即将推出，敬请期待。</p>
+        </div>
       </div>
     </div>
     <div class="chat-view__main">
+      <div class="chat-view__hero">
+        <div>
+          <p class="eyebrow">智能聊天</p>
+          <h2>多模态对话体验</h2>
+          <p class="text-muted">输入文本或上传图片，感受流畅的模型响应与轻盈布局。</p>
+        </div>
+        <div class="chat-view__hero-meta">
+          <span class="pill">模型: {{ selectedModel || '未选择' }}</span>
+          <span v-if="isResponding" class="pill pill--live">AI 正在响应</span>
+        </div>
+      </div>
+
+      <div class="chat-view__surface">
       <a-layout-content>
         <div ref="messageContainer" class="message-list">
           <div v-for="message in messages" :key="message.id" class="message-item" :class="`message-item--${message.role}`">
@@ -40,37 +61,41 @@
         </div>
       </a-layout-content>
       <a-layout-footer class="input-area">
-        <div class="input-area__upload">
-          <a-upload
-            :show-file-list="false"
-            :custom-request="handleImageUpload"
-            accept="image/*"
-          >
-            <template #upload-button>
-              <a-button>
-                <icon-upload />
-              </a-button>
-            </template>
-          </a-upload>
-        </div>
-        <div class="input-area__text">
-          <div v-if="uploadedImage" class="image-preview">
-            <a-image :src="uploadedImage" width="40" height="40" />
-            <a-button shape="circle" size="mini" class="image-preview__remove" @click="clearUploadedImage">
-              <icon-close />
-            </a-button>
+        <div class="input-area__shell">
+          <div class="input-area__upload">
+            <a-upload
+              :show-file-list="false"
+              :custom-request="handleImageUpload"
+              accept="image/*"
+            >
+              <template #upload-button>
+                <a-button>
+                  <icon-upload />
+                </a-button>
+              </template>
+            </a-upload>
           </div>
-          <a-textarea
-            v-model="userInput"
-            placeholder="输入消息... (可上传图片进行多模态输入)"
-            :auto-size="{ minRows: 1, maxRows: 5 }"
-            @keydown.enter.prevent="handleSend"
-          />
+          <div class="input-area__text">
+            <div v-if="uploadedImage" class="image-preview">
+              <a-image :src="uploadedImage" width="46" height="46" />
+              <a-button shape="circle" size="mini" class="image-preview__remove" @click="clearUploadedImage">
+                <icon-close />
+              </a-button>
+            </div>
+            <a-textarea
+              v-model="userInput"
+              placeholder="输入消息... (可上传图片进行多模态输入)"
+              :auto-size="{ minRows: 1, maxRows: 5 }"
+              @keydown.enter.prevent="handleSend"
+            />
+          </div>
+          <a-button type="primary" @click="handleSend" :disabled="(!userInput.trim() && !uploadedImage) || isResponding">
+            发送
+          </a-button>
         </div>
-        <a-button type="primary" @click="handleSend" :disabled="(!userInput.trim() && !uploadedImage) || isResponding">
-          发送
-        </a-button>
+        <p class="input-area__hint">Enter 发送 · 支持图片上传 · 信息传输加密</p>
       </a-layout-footer>
+      </div>
     </div>
 
     <!-- Access Key Modal -->
@@ -286,61 +311,187 @@ onMounted(() => {
 
 <style scoped>
 .chat-view {
-  display: flex;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 18px;
   height: calc(100vh - var(--app-header-height));
-  background-color: #f7f7f8;
+  padding: 20px 24px;
+  background: transparent;
 }
 
 .chat-view__sidebar {
-  width: 260px;
-  background-color: #fff;
-  border-right: 1px solid #e5e6eb;
+  background: linear-gradient(180deg, #0f172a 0%, #0b1224 100%);
+  border-radius: 18px;
+  color: #fff;
+  padding: 18px;
+  box-shadow: var(--app-shadow-soft);
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.chat-view__sidebar-header {
-  padding: 16px;
-  border-bottom: 1px solid #e5e6eb;
+.chat-view__sidebar-header h3 {
+  margin: 4px 0 6px;
+  font-size: 18px;
+}
+
+.chat-view__sidebar .eyebrow {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.chat-view__sidebar-card,
+.chat-view__history-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 12px;
+  border-radius: 12px;
+  backdrop-filter: blur(6px);
 }
 
 .chat-view__sidebar-content {
   flex: 1;
-  padding: 16px;
   overflow-y: auto;
+}
+
+.chat-view__sidebar-label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.68);
 }
 
 .chat-view__main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #fff;
+  gap: 14px;
+  min-width: 0;
+}
+
+.chat-view__hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: linear-gradient(120deg, rgba(37, 99, 235, 0.16), rgba(14, 165, 233, 0.18), rgba(255, 255, 255, 0.5));
+  border: 1px solid #dbeafe;
+  box-shadow: var(--app-shadow-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-view__hero::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: -30px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.25), transparent 60%);
+  filter: blur(10px);
+}
+
+.chat-view__hero h2 {
+  margin: 4px 0 6px;
+}
+
+.chat-view__hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  z-index: 1;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid #e0e7ff;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 12px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.pill--live {
+  background: linear-gradient(90deg, #ef4444, #f97316);
+  color: #fff;
+  border: none;
+  animation: pulse 1.6s infinite;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.chat-view__surface {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  box-shadow: var(--app-shadow-soft);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.chat-view__surface :deep(.arco-layout-content) {
+  flex: 1;
+  display: flex;
+}
+
+.chat-view__surface :deep(.arco-layout-footer) {
+  border: none;
+  padding: 0;
 }
 
 .message-list {
   flex: 1;
-  padding: 24px;
+  padding: 24px 28px;
   overflow-y: auto;
+  background:
+    radial-gradient(circle at 14% 20%, rgba(37, 99, 235, 0.06), transparent 30%),
+    radial-gradient(circle at 84% 10%, rgba(14, 165, 233, 0.07), transparent 30%),
+    #f8fafc;
 }
 
 .message-item {
   display: flex;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 22px;
+  animation: fadeInUp 0.2s ease;
 }
 
 .message-item__avatar {
-  margin-right: 16px;
+  margin-top: 4px;
 }
 
 .message-item__content {
-  max-width: 80%;
+  max-width: 72%;
+  display: grid;
+  gap: 8px;
 }
 
 .message-item__bubble {
   padding: 12px 16px;
-  border-radius: 18px;
-  background-color: #f2f3f5;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   line-height: 1.6;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
 }
 
 .message-item--user {
@@ -350,23 +501,28 @@ onMounted(() => {
   order: -1;
 }
 
-.message-item--user .message-item__avatar {
-  margin-left: 16px;
-  margin-right: 0;
-}
-
 .message-item--user .message-item__bubble {
-  background-color: #1677ff;
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
   color: #fff;
+  border: none;
+  box-shadow: 0 14px 36px rgba(37, 99, 235, 0.32);
 }
 
 .input-area {
-  padding: 16px 24px;
-  border-top: 1px solid #e5e6eb;
-  background-color: #fff;
+  padding: 14px 18px;
+  border-top: 1px solid #eef2f7;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.9));
+}
+
+.input-area__shell {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: flex-end;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
 }
 
 .input-area__text {
@@ -374,25 +530,66 @@ onMounted(() => {
   position: relative;
 }
 
+.input-area__hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--app-muted);
+}
+
 .image-preview {
   position: absolute;
   left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 10px;
   z-index: 1;
   background: #fff;
-  padding: 2px;
-  border-radius: 4px;
-  box-shadow: 0 0 5px rgba(0,0,0,0.2);
+  padding: 4px;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
 }
 
 .image-preview__remove {
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: -10px;
+  right: -10px;
 }
 
-.input-area .a-textarea {
-  padding-left: 60px; /* Make space for image preview */
+.input-area :deep(.arco-textarea) {
+  padding-left: 70px;
+  border-radius: 12px;
+  border-color: #e5e7eb;
+  background: #f9fbff;
+  min-height: 64px;
+}
+
+.message-list::-webkit-scrollbar {
+  width: 8px;
+}
+.message-list::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.2);
+  border-radius: 999px;
+}
+
+@keyframes pulse {
+  0% {
+    transform: translateZ(0);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

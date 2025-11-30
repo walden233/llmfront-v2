@@ -139,15 +139,17 @@ const handleLogout = () => {
 <style scoped>
 .app-layout {
   height: 100vh;
+  background: transparent;
 }
 
 .app-layout__logo {
-  padding: 20px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 22px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .app-layout__menu {
   border-right: none;
+  padding: 12px 10px;
 }
 
 .app-layout__header {
@@ -155,7 +157,11 @@ const handleLogout = () => {
   align-items: center;
   gap: 16px;
   height: var(--app-header-height);
-  border-bottom: 1px solid #f0f0f0;
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.8);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px) saturate(1.1);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
 }
 
 .app-layout__spacer {
@@ -167,24 +173,47 @@ const handleLogout = () => {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, rgba(37, 99, 235, 0.14), rgba(14, 165, 233, 0.14));
 }
 
 :deep(.el-aside) {
-  background-color: #111827;
+  background: linear-gradient(180deg, #0f172a 0%, #111827 60%, #0b1224 100%);
   color: #fff;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 10px 0 40px rgba(15, 23, 42, 0.35);
 }
 
 :deep(.el-menu) {
   background-color: transparent;
   color: #fff;
+  --el-menu-text-color: rgba(255, 255, 255, 0.78);
+  --el-menu-active-color: #fff;
 }
 
 :deep(.el-menu-item.is-active) {
-  background: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.32), rgba(14, 165, 233, 0.28));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
 }
 
 :deep(.el-menu-item) {
-  border-radius: 8px;
-  margin: 4px 8px;
+  border-radius: 12px;
+  margin: 4px 6px;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+:deep(.el-menu-item:not(.is-active):hover) {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(4px);
+}
+
+:deep(.el-header) {
+  padding: 0;
+}
+
+:deep(.el-main) {
+  padding: 0;
+  background: transparent;
 }
 </style>

@@ -1,24 +1,27 @@
 <template>
   <div class="app-page dashboard">
-    <div class="dashboard__header">
+    <div class="dashboard__banner">
       <div>
+        <p class="eyebrow">控制台</p>
         <h2>欢迎，{{ authStore.username }}</h2>
-        <p class="text-muted">通过控制台管理模型、Access Key 与调用情况。</p>
+        <p class="text-muted">在这里查看核心指标、调度模型、管理 Access Key 与订单。</p>
+        <div class="dashboard__actions">
+          <el-button type="primary" size="large" @click="router.push({ name: 'AccessKeys' })">
+            快速创建 Access Key
+          </el-button>
+          <span class="badge badge--ghost">一键启动模型体验</span>
+        </div>
       </div>
-      <el-button type="primary" @click="router.push({ name: 'AccessKeys' })">
-        快速创建 Access Key
-      </el-button>
+      <div class="dashboard__halo" aria-hidden="true" />
     </div>
 
-    <el-row :gutter="16">
-      <el-col :span="6" v-for="metric in metrics" :key="metric.label">
-        <el-card shadow="hover">
-          <p class="metric__label">{{ metric.label }}</p>
-          <p class="metric__value">{{ metric.value }}</p>
-          <p class="metric__desc">{{ metric.desc }}</p>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div class="dashboard__metrics">
+      <el-card v-for="metric in metrics" :key="metric.label" shadow="hover" class="metric-card">
+        <p class="metric__label">{{ metric.label }}</p>
+        <p class="metric__value">{{ metric.value }}</p>
+        <p class="metric__desc">{{ metric.desc }}</p>
+      </el-card>
+    </div>
 
     <el-card class="dashboard__placeholder" shadow="never">
       <template #header>近期动态</template>
@@ -48,31 +51,66 @@ const metrics = computed(() => [
 </script>
 
 <style scoped>
-.dashboard__header {
+.dashboard__banner {
+  position: relative;
+  overflow: hidden;
+  padding: 20px 24px;
+  border-radius: 18px;
+  background: linear-gradient(115deg, rgba(37, 99, 235, 0.2), rgba(14, 165, 233, 0.18), #ffffff);
+  border: 1px solid #e0e7ff;
+  box-shadow: var(--app-shadow-soft);
+}
+
+.dashboard__actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.dashboard__halo {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  right: -80px;
+  top: -120px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.25), transparent 55%);
+  filter: blur(10px);
+}
+
+.dashboard__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.metric-card {
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: var(--app-shadow-soft);
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
 .metric__label {
   margin: 0;
   font-size: 14px;
-  color: #666;
+  color: var(--app-muted);
 }
 
 .metric__value {
   margin: 8px 0 0;
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .metric__desc {
   margin: 8px 0 0;
-  color: #999;
+  color: #94a3b8;
 }
 
 .dashboard__placeholder {
-  margin-top: 24px;
+  margin-top: 8px;
+  border-radius: 14px;
+  border: 1px dashed #d0d7e3;
 }
 </style>

@@ -3,11 +3,16 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>可用模型</span>
+          <div>
+            <p class="eyebrow">模型目录</p>
+            <span>可用模型</span>
+            <p class="text-muted">仅展示在线模型，可根据优先级自动调度。</p>
+          </div>
+          <el-tag type="success" effect="plain">实时</el-tag>
         </div>
       </template>
 
-      <el-table :data="models" v-loading="loading" style="width: 100%">
+      <el-table :data="models" v-loading="loading" style="width: 100%" class="model-table" border>
         <el-table-column prop="displayName" label="模型名称" width="200" />
         <el-table-column prop="modelIdentifier" label="模型标识" width="200" />
         <el-table-column prop="providerName" label="提供商" width="150" />
@@ -85,7 +90,23 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
 }
+.card-header span {
+  display: block;
+  font-weight: 700;
+  font-size: 16px;
+  margin-top: 2px;
+}
+
+.model-table {
+  border-radius: 14px;
+  overflow: hidden;
+}
+.model-table :deep(.el-table__header-wrapper th) {
+  background: #f8fafc;
+}
+
 .mt-4 {
   margin-top: 16px;
 }

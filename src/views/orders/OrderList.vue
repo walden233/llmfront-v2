@@ -3,12 +3,16 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>我的订单</span>
+          <div>
+            <p class="eyebrow">交易记录</p>
+            <span>我的订单</span>
+            <p class="text-muted">管理充值与消耗订单，支持随时取消未完成订单。</p>
+          </div>
           <el-button type="primary" @click="handleCreateOrder">创建新订单</el-button>
         </div>
       </template>
 
-      <el-table :data="orders" v-loading="loading" style="width: 100%">
+      <el-table :data="orders" v-loading="loading" style="width: 100%" class="order-table" border>
         <el-table-column prop="orderNo" label="订单号" width="220" />
         <el-table-column prop="amount" label="金额 (元)" width="120">
           <template #default="{ row }">
@@ -182,6 +186,23 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+}
+
+.card-header span {
+  display: block;
+  font-weight: 700;
+  font-size: 16px;
+  margin-top: 2px;
+}
+
+.order-table {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.order-table :deep(.el-table__header-wrapper th) {
+  background: #f8fafc;
 }
 .mt-4 {
   margin-top: 16px;

@@ -1,7 +1,16 @@
 <template>
   <div class="app-page image-view">
-    <el-card class="image-view__controls">
-      <template #header>图像生成</template>
+    <el-card class="image-view__controls" shadow="hover">
+      <template #header>
+        <div class="image-view__header">
+          <div>
+            <p class="eyebrow">创作</p>
+            <h3>图像生成</h3>
+            <p class="text-muted">上传参考图，输入提示词，快速得到高清结果。</p>
+          </div>
+          <span class="badge badge--ghost">分辨率 1664*928</span>
+        </div>
+      </template>
       <a-form :model="form" layout="vertical">
         <a-form-item field="originImage" label="原始图像 (用于图像编辑)">
           <a-upload
@@ -49,17 +58,25 @@
       </a-form>
     </el-card>
 
-    <div class="image-view__results">
-      <div v-if="loading" class="results-placeholder">
-        <a-spin size="large" tip="正在请求模型生成图像..." />
+    <el-card class="image-view__results" shadow="hover">
+      <template #header>
+        <div class="image-view__results-header">
+          <span>输出预览</span>
+          <span class="badge badge--ghost">实时刷新</span>
+        </div>
+      </template>
+      <div class="image-view__results-body">
+        <div v-if="loading" class="results-placeholder">
+          <a-spin size="large" tip="正在请求模型生成图像..." />
+        </div>
+        <div v-else-if="!generatedImageUrl" class="results-placeholder">
+          <el-empty description="生成的图像将显示在这里" />
+        </div>
+        <div v-else class="image-display">
+          <el-image :src="generatedImageUrl" fit="contain" :preview-src-list="[generatedImageUrl]" />
+        </div>
       </div>
-      <div v-else-if="!generatedImageUrl" class="results-placeholder">
-        <el-empty description="生成的图像将显示在这里" />
-      </div>
-      <div v-else class="image-display">
-        <el-image :src="generatedImageUrl" fit="contain" :preview-src-list="[generatedImageUrl]" />
-      </div>
-    </div>
+    </el-card>
      <a-modal v-model:visible="isKeyModalVisible" title="请输入 Access Key" @ok="handleSetKey" :mask-closable="false">
       <a-input v-model="sessionKeyInput" placeholder="请输入你的 Access Key" />
     </a-modal>
@@ -151,7 +168,7 @@ const handleGenerate = async () => {
     const payload: any = {
       prompt: form.value.prompt,
       modelIdentifier: form.value.modelIdentifier,
-      options: { n: 1, size: '1024x1024' },
+      options: { n: 1, size: '1664*928' },
     };
     if (originImage.value) {
       payload.originImage = { url: originImage.value };
@@ -197,38 +214,86 @@ onMounted(() => {
 
 <style scoped>
 .image-view {
-  display: flex;
-  gap: 24px;
-  height: calc(100vh - var(--app-header-height) - 48px); /* Adjust for padding */
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 20px;
+  min-height: calc(100vh - var(--app-header-height) - 48px);
+  align-items: stretch;
+}
+
+.image-view__controls,
+.image-view__results {
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  box-shadow: var(--app-shadow-soft);
+  overflow: hidden;
 }
 
 .image-view__controls {
-  width: 380px;
-  flex-shrink: 0;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.image-view__header,
+.image-view__results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.image-view__header h3 {
+  margin: 2px 0 6px;
 }
 
 .image-view__results {
-  flex-grow: 1;
+  background: linear-gradient(180deg, #ffffff, #f9fbff);
+  display: flex;
+  flex-direction: column;
+}
+
+.image-view__results-body {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--el-fill-color-light);
-  border-radius: 8px;
-  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.06), transparent 30%),
+    radial-gradient(circle at 80% 0%, rgba(14, 165, 233, 0.08), transparent 32%),
+    #f8fafc;
+  border-radius: 12px;
+  min-height: 360px;
 }
 
 .results-placeholder {
   text-align: center;
-  color: var(--el-text-color-secondary);
+  color: var(--app-muted);
 }
 
 .image-display {
   width: 100%;
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.el-image {
+.image-display .el-image {
   width: 100%;
   height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
+.image-view :deep(.arco-upload-trigger) {
+  width: 100%;
+  border: 1px dashed #dbeafe;
+  border-radius: 12px;
+  padding: 14px 12px;
+  background: #f8fafc;
+}
+
+.image-view :deep(.arco-upload-list-picture-mask) {
+  border-radius: 12px;
 }
 </style>
