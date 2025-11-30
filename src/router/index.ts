@@ -76,6 +76,16 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'logs',
+        name: 'UsageLogs',
+        component: () => import('@/views/logs/UsageLogView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ROLE_USER', 'ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN'],
+          title: '调用日志',
+        },
+      },
+      {
         path: 'chat',
         name: 'Chat',
         component: () => import('@/views/chat/ChatView.vue'),

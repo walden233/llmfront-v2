@@ -11,7 +11,7 @@
           <el-button type="primary" size="large" @click="router.push({ name: 'AccessKeys' })">
             快速创建 Access Key
           </el-button>
-          <span class="badge badge--ghost">按日期过滤统计与日志</span>
+          <span class="badge badge--ghost">按日期过滤统计数据</span>
         </div>
       </div>
       <div class="dashboard__halo" aria-hidden="true" />
@@ -70,7 +70,6 @@
       <div class="chart-panel">
         <div class="chart-panel__header">
           <div>
-            <p class="eyebrow">折线图</p>
             <h3>调用趋势</h3>
             <p class="text-muted">按日期聚合的调用次数（/statistics/models）。</p>
           </div>
@@ -87,7 +86,6 @@
       <div class="chart-panel">
         <div class="chart-panel__header">
           <div>
-            <p class="eyebrow">饼状图</p>
             <h3>模型调用占比</h3>
             <p class="text-muted">按模型标识统计的调用次数分布。</p>
           </div>
@@ -99,56 +97,27 @@
           <el-empty v-else description="暂无占比数据" />
         </div>
       </div>
-    </div>
 
-    <el-card class="panel-card" shadow="hover">
-      <template #header>
-        <div class="logs-header">
+      <div class="chart-panel">
+        <div class="chart-panel__header">
           <div>
-            <p class="eyebrow">日志</p>
-            <h3>我的调用日志</h3>
-            <p class="text-muted">来自 /statistics/logs/me，展示最近的请求状态。</p>
+            <h3>成功 / 失败占比</h3>
+            <p class="text-muted">从总调用中拆分成功与失败占比。</p>
           </div>
-          <el-button size="small" @click="refreshUsageLogs" :loading="loadingLogs">刷新</el-button>
         </div>
-      </template>
-      <el-table :data="usageLogs" v-loading="loadingLogs" border>
-        <el-table-column prop="createTime" label="时间" min-width="160">
-          <template #default="{ row }">
-            {{ formatDate(row.createTime) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="模型" min-width="160">
-          <template #default="{ row }">
-            {{ formatModel(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="模式" width="120">
-          <template #default="{ row }">
-            <el-tag effect="plain" size="small" :type="row.isAsync ? 'warning' : 'success'">
-              {{ row.isAsync ? '异步' : '同步' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="120">
-          <template #default="{ row }">
-            <el-tag :type="row.isSuccess ? 'success' : 'danger'">{{ row.isSuccess ? '成功' : '失败' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="用量" min-width="180">
-          <template #default="{ row }">
-            <span v-if="row.imageCount">{{ row.imageCount }} 张图像</span>
-            <span v-else>{{ formatTokens(row) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="费用" width="120">
-          <template #default="{ row }">
-            {{ typeof row.cost === 'number' ? `¥${row.cost.toFixed(4)}` : '-' }}
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-empty v-if="!loadingLogs && usageLogs.length === 0" description="暂无调用日志" class="mt-16" />
-    </el-card>
+        <div class="chart-panel__body">
+          <el-skeleton v-if="loadingStats" animated :rows="4" />
+          <SimplePieChart
+            v-else-if="totalRequests"
+            :data="[
+              { label: '成功', value: successCount, color: chartPalette[2] },
+              { label: '失败', value: failureCount, color: chartPalette[6] },
+            ]"
+          />
+          <el-empty v-else description="暂无调用数据" />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -158,9 +127,9 @@ import dayjs from 'dayjs'
 import { useRouter } from 'vue-router'
 import SimpleLineChart from '@/components/charts/SimpleLineChart.vue'
 import SimplePieChart from '@/components/charts/SimplePieChart.vue'
-import { fetchModelStatistics, fetchMyUsageLogs } from '@/api/statistics'
+import { fetchModelStatistics } from '@/api/statistics'
 import { useAuthStore } from '@/stores/auth'
-import type { ModelStatisticsItem, ModelStatisticsQuery, UsageLogItem } from '@/types/statistics'
+import type { ModelStatisticsItem, ModelStatisticsQuery } from '@/types/statistics'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -174,9 +143,7 @@ const dateRange = ref<[Date, Date]>([
 const modelFilter = ref('')
 
 const loadingStats = ref(false)
-const loadingLogs = ref(false)
 const stats = ref<ModelStatisticsItem[]>([])
-const usageLogs = ref<UsageLogItem[]>([])
 
 const canViewStatistics = computed(() => authStore.hasRole(['ROLE_MODEL_ADMIN', 'ROLE_ROOT_ADMIN']))
 
@@ -204,7 +171,6 @@ const metrics = computed(() => [
     value: `¥${authStore.user?.balance?.toFixed(2) ?? '0.00'}`,
     desc: '当前账户可用余额 (元)',
   },
-  { label: '最新日志', value: usageLogs.value.length, desc: '最近调用记录条目' },
 ])
 
 const dateCategories = computed(() => {
@@ -312,25 +278,10 @@ const loadModelStats = async () => {
   }
 }
 
-const refreshUsageLogs = async () => {
-  loadingLogs.value = true
-  try {
-    const logs = await fetchMyUsageLogs()
-    usageLogs.value = logs.slice(0, 12)
-  } finally {
-    loadingLogs.value = false
-  }
-}
-
 const handleDateChange = () => {
   if (canViewStatistics.value) {
     loadModelStats()
   }
-}
-
-const formatDate = (value: string) => {
-  const parsed = dayjs(value)
-  return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : value
 }
 
 const normalizeDate = (value: string) => {
@@ -338,23 +289,10 @@ const normalizeDate = (value: string) => {
   return parsed.isValid() ? parsed.format('YYYY-MM-DD') : value
 }
 
-const formatModel = (row: UsageLogItem) => {
-  if (row.modelIdentifier) return row.modelIdentifier
-  return row.modelId ? `ID ${row.modelId}` : '未记录'
-}
-
-const formatTokens = (row: UsageLogItem) => {
-  const prompt = row.promptTokens ?? 0
-  const completion = row.completionTokens ?? 0
-  const total = prompt + completion
-  return total ? `${prompt}/${completion} tokens (P/C)` : '—'
-}
-
 onMounted(() => {
   if (canViewStatistics.value) {
     loadModelStats()
   }
-  refreshUsageLogs()
 })
 </script>
 
@@ -426,8 +364,10 @@ onMounted(() => {
 
 .metric__value {
   margin: 8px 0 0;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
+  word-break: break-all;
+  line-height: 1.2;
 }
 
 .metric__desc {
@@ -437,7 +377,7 @@ onMounted(() => {
 
 .chart-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 14px;
   padding: 16px;
 }
@@ -462,15 +402,4 @@ onMounted(() => {
   min-height: 280px;
 }
 
-.logs-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.mt-16 {
-  margin-top: 16px;
-}
 </style>

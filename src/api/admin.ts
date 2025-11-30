@@ -1,7 +1,7 @@
 import { get, post, put, del } from './request'
 import type { PageResult } from '@/types/api'
 import type { Model } from '@/types/model'
-import type { Provider } from '@/types/provider'
+import type { Provider, ProviderKey } from '@/types/provider'
 import type { User } from '@/types/user'
 import type { AssignRoleRequest } from '@/types/auth'
 
@@ -51,4 +51,16 @@ export const createProvider = (payload: { name: string, urlBase?: string }) => p
 export const updateProvider = (id: number, payload: { name?: string, urlBase?: string }) => put<Provider>(`/providers/${id}`, payload)
 
 export const deleteProvider = (id: number) => del<boolean>(`/providers/${id}`)
+
+// --- Provider Key Management ---
+
+export const listProviderKeys = (providerId: number) => get<ProviderKey[]>(`/providers/${providerId}/keys`)
+
+export const createProviderKey = (payload: { providerId?: number; providerName?: string; apiKey: string }) =>
+  post<ProviderKey>('/providers/keys', payload)
+
+export const updateProviderKeyStatus = (keyId: number, payload: { status: boolean }) =>
+  post<ProviderKey>(`/providers/keys/${keyId}/status`, payload)
+
+export const deleteProviderKey = (keyId: number) => del<boolean>(`/providers/keys/${keyId}`)
 

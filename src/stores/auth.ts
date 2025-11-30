@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ElMessage } from 'element-plus'
 import { login as loginApi, register as registerApi, fetchProfile, changePassword } from '@/api/auth'
+import { listAccessKeys } from '@/api/access-keys'
 import type {
   ChangePasswordRequest,
   LoginRequest,
@@ -101,6 +102,19 @@ export const useAuthStore = defineStore('auth', {
     },
     setSessionAccessKey(key: string) {
       this.sessionAccessKey = key
+    },
+    async ensureSessionAccessKey() {
+      if (this.sessionAccessKey) return this.sessionAccessKey
+      try {
+        const keys = await listAccessKeys()
+        const firstKey = keys.find((item) => item.keyValue)
+        if (firstKey?.keyValue) {
+          this.sessionAccessKey = firstKey.keyValue
+        }
+      } catch (error) {
+        // ignore, keep current key state
+      }
+      return this.sessionAccessKey
     },
     hasRole(roles?: UserRole[] | string[]) {
       if (!roles || roles.length === 0) {

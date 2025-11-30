@@ -22,17 +22,24 @@
       </div>
     </div>
     <div class="chat-view__main">
-      <div class="chat-view__hero">
-        <div>
-          <p class="eyebrow">智能聊天</p>
-          <h2>多模态对话体验</h2>
-          <p class="text-muted">输入文本或上传图片，感受流畅的模型响应与轻盈布局。</p>
+        <div class="chat-view__hero">
+          <div>
+            <p class="eyebrow">智能聊天</p>
+            <h2>多模态对话体验</h2>
+            <p class="text-muted">输入文本或上传图片，感受流畅的模型响应与轻盈布局。</p>
+          </div>
+          <div class="chat-view__hero-meta">
+            <span class="pill">模型: {{ selectedModel || '未选择' }}</span>
+            <span v-if="isResponding" class="pill pill--live">AI 正在响应</span>
+            <span
+              v-for="cap in capabilityTags"
+              :key="cap"
+              class="pill pill--muted"
+            >
+              {{ capabilityLabel[cap] || cap }}
+            </span>
+          </div>
         </div>
-        <div class="chat-view__hero-meta">
-          <span class="pill">模型: {{ selectedModel || '未选择' }}</span>
-          <span v-if="isResponding" class="pill pill--live">AI 正在响应</span>
-        </div>
-      </div>
 
       <div class="chat-view__surface">
       <a-layout-content>
@@ -67,13 +74,23 @@
               :show-file-list="false"
               :custom-request="handleImageUpload"
               accept="image/*"
+              :disabled="!canUseImage"
             >
               <template #upload-button>
-                <a-button>
+                <a-button :disabled="!canUseImage">
                   <icon-upload />
                 </a-button>
               </template>
             </a-upload>
+            <a-input
+              v-model="imageUrlInput"
+              size="small"
+              placeholder="或粘贴图片 URL"
+              :disabled="!canUseImage"
+              allow-clear
+              @press-enter="applyImageUrl"
+              style="margin-top: 6px"
+            />
           </div>
           <div class="input-area__text">
             <div v-if="uploadedImage" class="image-preview">
@@ -93,7 +110,9 @@
             发送
           </a-button>
         </div>
-        <p class="input-area__hint">Enter 发送 · 支持图片上传 · 信息传输加密</p>
+        <p class="input-area__hint">
+          Enter 发送 · 图片输入{{ canUseImage ? '已启用' : '当前模型不支持图片' }} · 信息传输加密
+        </p>
       </a-layout-footer>
       </div>
     </div>
@@ -109,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { listModels } from '@/api/model'
 import { chatCompletion } from '@/api/proxy'
@@ -125,6 +144,7 @@ import { IconUpload, IconClose } from '@arco-design/web-vue/es/icon';
 const authStore = useAuthStore()
 const models = ref<Model[]>([])
 const selectedModel = ref<string>('')
+const selectedModelEntity = computed(() => models.value.find((m) => m.modelIdentifier === selectedModel.value))
 const messages = ref<ChatMessage[]>([])
 const userInput = ref('')
 const isResponding = ref(false)
@@ -132,6 +152,15 @@ const messageContainer = ref<HTMLElement | null>(null)
 const isKeyModalVisible = ref(false)
 const sessionKeyInput = ref('')
 const uploadedImage = ref<string | null>(null)
+const imageUrlInput = ref('')
+const canUseImage = computed(() => selectedModelEntity.value?.capabilities?.includes('image-to-text'))
+const capabilityTags = computed(() => selectedModelEntity.value?.capabilities ?? [])
+const capabilityLabel: Record<string, string> = {
+  'text-to-text': '文生文',
+  'text-to-image': '文生图',
+  'image-to-text': '多模态输入',
+  'image-to-image': '图像编辑',
+}
 
 const md: MarkdownIt = new MarkdownIt({
   highlight: (str: string, lang: string) => {
@@ -157,6 +186,12 @@ const scrollToBottom = () => {
 }
 
 watch(messages, () => scrollToBottom(), { deep: true })
+watch(canUseImage, (val) => {
+  if (!val) {
+    uploadedImage.value = null
+    imageUrlInput.value = ''
+  }
+})
 
 const fetchModels = async () => {
   try {
@@ -179,6 +214,10 @@ const fetchModels = async () => {
 };
 
 const handleImageUpload = (options: any) => {
+  if (!canUseImage.value) {
+    ElMessage.warning('当前模型不支持图片输入')
+    return
+  }
   const { file, onSuccess } = options
   const reader = new FileReader()
   reader.onload = (e) => {
@@ -195,6 +234,13 @@ const handleImageUpload = (options: any) => {
 
 const clearUploadedImage = () => {
   uploadedImage.value = null
+  imageUrlInput.value = ''
+}
+
+const applyImageUrl = () => {
+  if (!canUseImage.value) return
+  if (!imageUrlInput.value.trim()) return
+  uploadedImage.value = imageUrlInput.value.trim()
 }
 
 const handleSend = async () => {
@@ -202,6 +248,10 @@ const handleSend = async () => {
   if (!authStore.sessionAccessKey) {
     ElMessage.warning('请先设置 Access Key')
     isKeyModalVisible.value = true
+    return
+  }
+  if (uploadedImage.value && !canUseImage.value) {
+    ElMessage.warning('当前模型不支持图片输入')
     return
   }
 
@@ -303,9 +353,11 @@ const handleSetKey = () => {
 
 onMounted(() => {
   fetchModels()
-  if (!authStore.sessionAccessKey) {
-    isKeyModalVisible.value = true
-  }
+  authStore.ensureSessionAccessKey().then((key) => {
+    if (!key) {
+      isKeyModalVisible.value = true
+    }
+  })
 })
 </script>
 
@@ -426,6 +478,12 @@ onMounted(() => {
   color: #fff;
   border: none;
   animation: pulse 1.6s infinite;
+}
+
+.pill--muted {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: #e5e7eb;
+  color: #475569;
 }
 
 .eyebrow {

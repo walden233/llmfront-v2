@@ -18,6 +18,7 @@
             :custom-request="handleImageUpload"
             accept="image/*"
             list-type="picture-card"
+            :disabled="!canEditImage"
           >
             <div v-if="originImage">
               <img :src="originImage" style="width: 100%" />
@@ -30,7 +31,7 @@
                 <icon-plus />
               </div>
               <div class="arco-upload-trigger-text">
-                上传图片
+                {{ canEditImage ? '上传图片' : '模型不支持图像编辑' }}
               </div>
             </div>
           </a-upload>
@@ -38,6 +39,17 @@
             <a-button v-if="originImage" @click="clearOriginImage" size="small" type="text" status="danger">
               <icon-delete /> 清除图像
             </a-button>
+            <div class="url-input-row">
+              <a-input
+                v-model="originImageUrl"
+                size="small"
+                placeholder="或粘贴图片 URL"
+                :disabled="!canEditImage"
+                allow-clear
+                @press-enter="applyOriginUrl"
+              />
+              <a-button size="small" type="outline" :disabled="!canEditImage" @click="applyOriginUrl">使用 URL</a-button>
+            </div>
           </template>
         </a-form-item>
         <a-form-item field="prompt" label="提示词">
@@ -49,6 +61,13 @@
               {{ model.displayName }}
             </a-option>
           </a-select>
+          <template #extra>
+            <div class="capability-tags">
+              <span v-for="cap in capabilityTags" :key="cap" class="pill pill--muted">
+                {{ capabilityLabel[cap] || cap }}
+              </span>
+            </div>
+          </template>
         </a-form-item>
         <a-form-item>
           <a-button type="primary" long @click="handleGenerate" :loading="loading">
@@ -84,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { listModels } from '@/api/model';
 import { generateImage } from '@/api/proxy';
@@ -94,11 +113,21 @@ import { IconPlus, IconEdit, IconDelete } from '@arco-design/web-vue/es/icon';
 
 const authStore = useAuthStore();
 const models = ref<Model[]>([]);
+const selectedModel = computed(() => models.value.find((m) => m.modelIdentifier === form.value.modelIdentifier));
+const capabilityTags = computed(() => selectedModel.value?.capabilities ?? []);
+const capabilityLabel: Record<string, string> = {
+  'text-to-text': '文生文',
+  'text-to-image': '文生图',
+  'image-to-text': '多模态输入',
+  'image-to-image': '图像编辑',
+};
+const canEditImage = computed(() => selectedModel.value?.capabilities?.includes('image-to-image'));
 const loading = ref(false);
 const generatedImageUrl = ref('');
 const isKeyModalVisible = ref(false);
 const sessionKeyInput = ref('');
 const originImage = ref<string | null>(null);
+const originImageUrl = ref('');
 
 const form = ref({
   prompt: '',
@@ -133,6 +162,10 @@ const fetchImageModels = async () => {
 };
 
 const handleImageUpload = (options: any) => {
+  if (!canEditImage.value) {
+    ElMessage.warning('当前模型不支持图像编辑/上传');
+    return;
+  }
   const { file, onSuccess } = options;
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -149,6 +182,13 @@ const handleImageUpload = (options: any) => {
 
 const clearOriginImage = () => {
   originImage.value = null;
+  originImageUrl.value = '';
+};
+
+const applyOriginUrl = () => {
+  if (!canEditImage.value) return;
+  if (!originImageUrl.value.trim()) return;
+  originImage.value = originImageUrl.value.trim();
 };
 
 const handleGenerate = async () => {
@@ -159,6 +199,10 @@ const handleGenerate = async () => {
   if (!authStore.sessionAccessKey) {
     ElMessage.warning('请先设置 Access Key');
     isKeyModalVisible.value = true;
+    return;
+  }
+  if (originImage.value && !canEditImage.value) {
+    ElMessage.warning('当前模型不支持图像编辑');
     return;
   }
 
@@ -206,9 +250,11 @@ const handleSetKey = () => {
 
 onMounted(() => {
   fetchImageModels();
-   if (!authStore.sessionAccessKey) {
-    isKeyModalVisible.value = true;
-  }
+  authStore.ensureSessionAccessKey().then((key) => {
+    if (!key) {
+      isKeyModalVisible.value = true;
+    }
+  });
 });
 </script>
 
@@ -231,6 +277,34 @@ onMounted(() => {
 
 .image-view__controls {
   background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.url-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.capability-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  border: 1px solid #dbeafe;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 12px;
 }
 
 .image-view__header,

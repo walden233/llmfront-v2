@@ -58,6 +58,7 @@ import {
   Box,
   ChatDotRound,
   Picture,
+  Document,
   Setting,
   Service,
   User,
@@ -86,6 +87,7 @@ const rawMenus: MenuItem[] = [
   { name: 'AccessKeys', label: 'Access Keys', icon: Key },
   { name: 'Orders', label: '我的订单', icon: Tickets },
   { name: 'Models', label: '可用模型', icon: Box },
+  { name: 'UsageLogs', label: '调用日志', icon: Document },
   {
     name: 'AdminModels',
     label: '模型管理',

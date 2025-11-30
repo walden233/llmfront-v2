@@ -58,6 +58,8 @@
            <el-select v-model="form.capabilities" multiple placeholder="选择模型功能">
             <el-option label="文生文" value="text-to-text" />
             <el-option label="文生图" value="text-to-image" />
+            <el-option label="多模态输入" value="image-to-text" />
+            <el-option label="图像编辑" value="image-to-image" />
           </el-select>
         </el-form-item>
         <el-form-item label="优先级" prop="priority" required>
