@@ -135,6 +135,16 @@ const routes: RouteRecordRaw[] = [
           title: '用户管理',
         },
       },
+      {
+        path: 'admin/orders',
+        name: 'AdminOrders',
+        component: () => import('@/views/admin/orders/AdminOrderList.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ROLE_ROOT_ADMIN'],
+          title: '订单管理',
+        },
+      },
     ],
   },
   {

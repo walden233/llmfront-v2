@@ -111,7 +111,6 @@ const rawMenus: MenuItem[] = [
     label: '订单管理',
     icon: Tickets,
     roles: ['ROLE_ROOT_ADMIN'],
-    disabled: true,
   },
 ]
 

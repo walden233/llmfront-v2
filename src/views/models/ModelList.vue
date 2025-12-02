@@ -16,6 +16,11 @@
         <el-table-column prop="displayName" label="模型名称" width="200" />
         <el-table-column prop="modelIdentifier" label="模型标识" width="200" />
         <el-table-column prop="providerName" label="提供商" width="150" />
+        <el-table-column label="模型价格" min-width="240">
+          <template #default="{ row }">
+            <span class="pricing-json">{{ formatPricing(row.pricing) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="capabilities" label="功能">
           <template #default="{ row }">
             <el-tag v-for="cap in row.capabilities" :key="cap" class="mr-2">{{ cap }}</el-tag>
@@ -80,6 +85,15 @@ const handlePageChange = (currentPage: number) => {
   fetchModels()
 }
 
+const formatPricing = (pricing: Model['pricing']) => {
+  if (!pricing) return '-'
+  try {
+    return typeof pricing === 'string' ? pricing : JSON.stringify(pricing)
+  } catch {
+    return '-'
+  }
+}
+
 onMounted(() => {
   fetchModels()
 })
@@ -112,5 +126,9 @@ onMounted(() => {
 }
 .mr-2 {
   margin-right: 8px;
+}
+.pricing-json {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  word-break: break-all;
 }
 </style>

@@ -4,6 +4,7 @@ import type { Model } from '@/types/model'
 import type { Provider, ProviderKey } from '@/types/provider'
 import type { User } from '@/types/user'
 import type { AssignRoleRequest } from '@/types/auth'
+import type { Order } from '@/types/order'
 
 // --- User Management ---
 interface ListUsersParams {
@@ -63,4 +64,15 @@ export const updateProviderKeyStatus = (keyId: number, payload: { status: boolea
   post<ProviderKey>(`/providers/keys/${keyId}/status`, payload)
 
 export const deleteProviderKey = (keyId: number) => del<boolean>(`/providers/keys/${keyId}`)
+
+// --- Order Management (Admin) ---
+
+interface ListOrdersParams {
+  pageNum?: number
+  pageSize?: number
+  status?: string
+  userId?: number
+}
+
+export const listOrders = (params: ListOrdersParams) => get<PageResult<Order>>('/orders', { params })
 

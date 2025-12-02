@@ -18,3 +18,7 @@ export interface CreateOrderRequest {
 export interface CancelOrderRequest {
   orderNo: string
 }
+
+export interface PayOrderRequest {
+  orderNo: string
+}

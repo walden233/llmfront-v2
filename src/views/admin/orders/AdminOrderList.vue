@@ -5,15 +5,15 @@
         <div class="card-header">
           <div>
             <p class="eyebrow">交易记录</p>
-            <span>我的订单</span>
-            <p class="text-muted">管理充值与消耗订单，支持随时取消未完成订单。</p>
+            <span>订单管理</span>
+            <p class="text-muted">查看所有订单，支持管理员代支付或取消未完成订单。</p>
           </div>
-          <el-button type="primary" @click="handleCreateOrder">创建新订单</el-button>
         </div>
       </template>
 
       <el-table :data="orders" v-loading="loading" style="width: 100%" class="order-table" border>
         <el-table-column prop="orderNo" label="订单号" width="220" />
+        <el-table-column prop="userId" label="用户 ID" width="120" />
         <el-table-column prop="amount" label="金额 (元)" width="120">
           <template #default="{ row }">
             {{ row.amount.toFixed(2) }}
@@ -71,11 +71,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useAuthStore } from '@/stores/auth'
-import { listMyOrders, createOrder, cancelOrder, payOrder } from '@/api/order'
+import { listOrders } from '@/api/admin'
+import { cancelOrder, payOrder } from '@/api/order'
 import type { Order, OrderStatus } from '@/types/order'
 
-const authStore = useAuthStore()
 const orders = ref<Order[]>([])
 const loading = ref(false)
 const total = ref(0)
@@ -85,7 +84,7 @@ const pageSize = ref(10)
 const fetchOrders = async () => {
   loading.value = true
   try {
-    const { records, total: totalItems } = await listMyOrders({
+    const { records, total: totalItems } = await listOrders({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
     })
@@ -109,7 +108,7 @@ const statusType = (status: OrderStatus) => {
     case 'CANCELLED':
       return 'info'
     default:
-      return undefined // Return undefined instead of empty string
+      return undefined
   }
 }
 
@@ -133,37 +132,6 @@ const handlePageChange = (currentPage: number) => {
   fetchOrders()
 }
 
-const handleCreateOrder = () => {
-  ElMessageBox.prompt('请输入充值金额 (元)', '创建新订单', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    inputPattern: /^[1-9]\d*(\.\d{1,2})?$/,
-    inputErrorMessage: '请输入有效的金额',
-  })
-    .then(async ({ value }) => {
-      if (!authStore.user?.id) {
-        ElMessage.error('无法获取用户信息，请重新登录')
-        return
-      }
-      loading.value = true
-      try {
-        await createOrder({
-          userId: authStore.user.id,
-          amount: Number(value),
-        })
-        ElMessage.success('订单创建成功')
-        await fetchOrders() // Refresh list
-      } catch (error) {
-        ElMessage.error('订单创建失败')
-      } finally {
-        loading.value = false
-      }
-    })
-    .catch(() => {
-      ElMessage.info('已取消创建订单')
-    })
-}
-
 const handleCancelOrder = (order: Order) => {
   ElMessageBox.confirm('确定要取消这个订单吗？', '取消订单', {
     confirmButtonText: '确定',
@@ -175,7 +143,7 @@ const handleCancelOrder = (order: Order) => {
       try {
         await cancelOrder({ orderNo: order.orderNo })
         ElMessage.success('订单已取消')
-        await fetchOrders() // Refresh list
+        await fetchOrders()
       } catch (error) {
         ElMessage.error('取消订单失败')
       } finally {
@@ -238,10 +206,12 @@ onMounted(() => {
 .order-table :deep(.el-table__header-wrapper th) {
   background: #f8fafc;
 }
+
 .action-buttons {
   display: flex;
   gap: 8px;
 }
+
 .mt-4 {
   margin-top: 16px;
 }
