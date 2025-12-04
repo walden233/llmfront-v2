@@ -78,7 +78,12 @@
         <div class="chart-panel__body">
           <el-skeleton v-if="loadingStats" animated :rows="4" />
           <el-empty v-else-if="!canViewStatistics" description="需要模型管理员权限才能查看聚合统计" />
-          <SimpleLineChart v-else-if="lineSeries.length" :series="lineSeries" :height="320" />
+          <SimpleLineChart
+            v-else-if="lineSeries.length"
+            :series="lineSeries"
+            :height="320"
+            :categories="dateCategories"
+          />
           <el-empty v-else description="暂无统计数据" />
         </div>
       </div>
@@ -189,7 +194,8 @@ const statsByModel = computed(() => {
   const map = new Map<string, Map<string, ModelStatisticsItem>>()
   stats.value.forEach((item) => {
     const key = item.modelIdentifier || `模型${item.modelId ?? ''}`
-    const dateKey = normalizeDate(item.statDate)
+    const dateKey = getStatDate(item)
+    if (!dateKey) return
     const byDate = map.get(key) ?? new Map<string, ModelStatisticsItem>()
     byDate.set(dateKey, item)
     map.set(key, byDate)
@@ -220,9 +226,9 @@ const lineSeries = computed(() => {
   if (!dates.length) return []
 
   const aggregate = dates.map((date) => ({
-    x: dayjs(date).format('MM-DD'),
+    x: date,
     y: stats.value
-      .filter((item) => normalizeDate(item.statDate) === date)
+      .filter((item) => getStatDate(item) === date)
       .reduce((sum, item) => sum + (item.totalRequests || 0), 0),
   }))
 
@@ -234,7 +240,7 @@ const lineSeries = computed(() => {
     const data = dates.map((date) => {
       const dayStat = statsByModel.value.get(model.key)?.get(date)
       return {
-        x: dayjs(date).format('MM-DD'),
+        x: date,
         y: dayStat?.totalRequests ?? 0,
       }
     })
@@ -288,6 +294,8 @@ const normalizeDate = (value: string) => {
   const parsed = dayjs(value)
   return parsed.isValid() ? parsed.format('YYYY-MM-DD') : value
 }
+
+const getStatDate = (item: ModelStatisticsItem) => normalizeDate(item.statDate || item.date || '')
 
 onMounted(() => {
   if (canViewStatistics.value) {

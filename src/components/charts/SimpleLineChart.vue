@@ -31,7 +31,7 @@
           class="axis-line"
         />
 
-        <g v-for="(label, index) in categories" :key="`x-${label}-${index}`">
+        <g v-for="(label, index) in categoryLabels" :key="`x-${label}-${index}`">
           <text
             :x="padding.left + index * xStep"
             :y="viewBoxHeight - padding.bottom + 24"
@@ -85,6 +85,7 @@ interface LineSeries {
 const props = defineProps<{
   series: LineSeries[]
   height?: number
+  categories?: string[]
 }>()
 
 const viewBoxWidth = 880
@@ -95,17 +96,6 @@ const viewBoxHeight = computed(() => props.height ?? defaultHeight)
 
 const palette = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#f97316', '#8b5cf6', '#ef4444']
 
-const categories = computed(() => {
-  const collected = new Set<string>()
-  props.series.forEach((s) => s.data.forEach((item) => collected.add(formatLabel(item.x))))
-  return Array.from(collected).sort((a, b) => {
-    const aDate = dayjs(a, ['YYYY-MM-DD', 'MM-DD', 'YYYY/MM/DD'], true)
-    const bDate = dayjs(b, ['YYYY-MM-DD', 'MM-DD', 'YYYY/MM/DD'], true)
-    if (aDate.isValid() && bDate.isValid()) return aDate.valueOf() - bDate.valueOf()
-    return a.localeCompare(b)
-  })
-})
-
 const resolvedSeries = computed(() =>
   props.series
     .filter((s) => s.data && s.data.length)
@@ -113,11 +103,33 @@ const resolvedSeries = computed(() =>
       ...s,
       color: s.color ?? palette[index % palette.length],
       data: s.data.map((item) => ({
-        x: formatLabel(item.x),
+        x: item.x,
         y: item.y,
       })),
     })),
 )
+
+const compareKey = (a: string, b: string) => {
+  const aDate = dayjs(a)
+  const bDate = dayjs(b)
+  if (aDate.isValid() && bDate.isValid()) return aDate.valueOf() - bDate.valueOf()
+  return a.localeCompare(b)
+}
+
+const inferredCategories = computed(() => {
+  const collected = new Set<string>()
+  resolvedSeries.value.forEach((s) => s.data.forEach((item) => collected.add(item.x)))
+  return Array.from(collected).sort(compareKey)
+})
+
+const categoryKeys = computed(() => {
+  if (props.categories && props.categories.length) {
+    return props.categories.map((item) => item)
+  }
+  return inferredCategories.value
+})
+
+const categoryLabels = computed(() => categoryKeys.value.map((key) => formatLabel(key)))
 
 const hasData = computed(() => resolvedSeries.value.some((s) => s.data.length))
 
@@ -135,7 +147,7 @@ const yTicks = computed(() => {
 })
 
 const xStep = computed(() => {
-  const count = Math.max(categories.value.length - 1, 1)
+  const count = Math.max(categoryKeys.value.length - 1, 1)
   return (viewBoxWidth - padding.left - padding.right) / count
 })
 
@@ -145,8 +157,8 @@ const tickToY = (tick: number) =>
   viewBoxHeight.value - padding.bottom - Math.min(tick, yMax.value) * yUnit.value
 
 const buildPoints = (series: LineSeries & { color?: string }) =>
-  categories.value.map((label, index) => {
-    const matched = series.data.find((item) => item.x === label)
+  categoryKeys.value.map((key, index) => {
+    const matched = series.data.find((item) => item.x === key)
     const value = matched?.y ?? 0
     return {
       x: padding.left + index * xStep.value,

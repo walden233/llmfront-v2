@@ -9,7 +9,8 @@ export interface ModelStatisticsQuery {
 export interface ModelStatisticsItem {
   modelId?: number
   modelIdentifier?: string
-  statDate: string
+  statDate?: string
+  date?: string
   totalRequests: number
   successCount: number
   failureCount: number
