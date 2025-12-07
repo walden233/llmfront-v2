@@ -16,8 +16,41 @@
       </div>
       <div class="chat-view__sidebar-content">
         <div class="chat-view__history-card">
-          <p class="chat-view__sidebar-label">最近会话</p>
-          <p class="text-muted">会话列表即将推出，敬请期待。</p>
+          <div class="chat-view__history-head">
+            <p class="chat-view__sidebar-label">最近会话</p>
+            <div class="chat-view__history-actions">
+              <a-button size="mini" type="text" @click="startNewConversation">新对话</a-button>
+              <a-button size="mini" type="text" @click="loadRecentConversations" :loading="conversationLoading">
+                刷新
+              </a-button>
+            </div>
+          </div>
+          <div v-if="conversationLoading" class="chat-view__history-empty">
+            <a-spin size="small" />
+            <p class="text-muted">正在获取最近会话...</p>
+          </div>
+          <div v-else-if="conversations.length === 0" class="chat-view__history-empty">
+            <p>暂无会话</p>
+            <p class="text-muted">发送消息后会自动创建会话并记录历史。</p>
+          </div>
+          <div v-else class="conversation-list">
+            <div
+              v-for="conversation in conversations"
+              :key="conversation.conversationId"
+              class="conversation-item"
+              :class="{ 'conversation-item--active': conversation.conversationId === currentConversationId }"
+              @click="selectConversation(conversation)"
+            >
+              <div class="conversation-item__top">
+                <span class="conversation-item__title">{{ conversation.title || '未命名会话' }}</span>
+                <span v-if="conversation.pinned" class="conversation-item__badge">置顶</span>
+              </div>
+              <div class="conversation-item__meta">
+                <span>{{ formatConversationTime(conversation.lastActiveAt || conversation.updatedAt) }}</span>
+                <span>{{ conversation.messageCount }} 条</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -44,27 +77,50 @@
       <div class="chat-view__surface">
       <a-layout-content>
         <div ref="messageContainer" class="message-list">
-          <div v-for="message in messages" :key="message.id" class="message-item" :class="`message-item--${message.role}`">
-            <div class="message-item__avatar">
-              <a-avatar>{{ message.role === 'user' ? authStore.username.slice(0, 2).toUpperCase() : 'AI' }}</a-avatar>
-            </div>
-            <div class="message-item__content">
-              <div v-if="message.imageUrl">
-                <a-image :src="message.imageUrl" width="200" />
-              </div>
-              <div class="message-item__bubble" v-if="message.content" v-html="renderMarkdown(message.content)"></div>
-            </div>
+          <div v-if="messagesLoading" class="message-list__loading">
+            <a-spin />
+            <p class="text-muted">正在加载历史对话...</p>
           </div>
-          <div v-if="isResponding" class="message-item message-item--assistant">
-             <div class="message-item__avatar">
-              <a-avatar>AI</a-avatar>
+          <template v-else>
+            <div v-if="messages.length === 0 && !isResponding" class="message-list__empty">
+              <p>还没有消息</p>
+              <p class="text-muted">选择左侧的会话或直接开始新的提问。</p>
             </div>
-            <div class="message-item__content">
-              <div class="message-item__bubble">
-                <a-spin size="small" />
+            <div
+              v-for="message in messages"
+              :key="message.id || message.messageId"
+              class="message-item"
+              :class="`message-item--${message.role}`"
+            >
+              <div class="message-item__avatar">
+                <a-avatar>{{ message.role === 'user' ? authStore.username.slice(0, 2).toUpperCase() : 'AI' }}</a-avatar>
+              </div>
+              <div class="message-item__content">
+                <div v-if="message.imageUrls?.length" class="message-item__images">
+                  <a-image
+                    v-for="(url, index) in message.imageUrls"
+                    :key="`${message.id || message.messageId}-${index}`"
+                    :src="url"
+                    width="200"
+                  />
+                </div>
+                <div v-else-if="message.imageUrl" class="message-item__images">
+                  <a-image :src="message.imageUrl" width="200" />
+                </div>
+                <div class="message-item__bubble" v-if="message.content" v-html="renderMarkdown(message.content)"></div>
               </div>
             </div>
-          </div>
+            <div v-if="isResponding" class="message-item message-item--assistant">
+               <div class="message-item__avatar">
+                <a-avatar>AI</a-avatar>
+              </div>
+              <div class="message-item__content">
+                <div class="message-item__bubble">
+                  <a-spin size="small" />
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </a-layout-content>
       <a-layout-footer class="input-area">
@@ -106,7 +162,11 @@
               @keydown.enter.prevent="handleSend"
             />
           </div>
-          <a-button type="primary" @click="handleSend" :disabled="(!userInput.trim() && !uploadedImage) || isResponding">
+          <a-button
+            type="primary"
+            @click="handleSend"
+            :disabled="((!userInput.trim() && !uploadedImage) || isResponding || messagesLoading)"
+          >
             发送
           </a-button>
         </div>
@@ -132,10 +192,13 @@ import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { listModels } from '@/api/model'
 import { chatCompletion } from '@/api/proxy'
+import { fetchConversationMessages, fetchRecentConversations } from '@/api/conversation'
 import type { Model } from '@/types/model'
 import type { ChatMessage, OpenAiMessage } from '@/types/chat'
+import type { ConversationMessage, ConversationSummary } from '@/types/conversation'
 import { ElMessage } from 'element-plus'
 import { v4 as uuidv4 } from 'uuid'
+import dayjs from 'dayjs'
 import MarkdownIt from 'markdown-it'
 import 'highlight.js/styles/github.css';
 import hljs from 'highlight.js';
@@ -161,6 +224,10 @@ const capabilityLabel: Record<string, string> = {
   'image-to-text': '多模态输入',
   'image-to-image': '图像编辑',
 }
+const conversations = ref<ConversationSummary[]>([])
+const conversationLoading = ref(false)
+const currentConversationId = ref<string>('')
+const messagesLoading = ref(false)
 
 const md: MarkdownIt = new MarkdownIt({
   highlight: (str: string, lang: string) => {
@@ -177,6 +244,12 @@ const md: MarkdownIt = new MarkdownIt({
 
 const renderMarkdown = (content: string) => md.render(content)
 
+const formatConversationTime = (value?: string) => {
+  if (!value) return ''
+  const parsed = dayjs(value)
+  return parsed.isValid() ? parsed.format('MM/DD HH:mm') : ''
+}
+
 const scrollToBottom = () => {
   nextTick(() => {
     if (messageContainer.value) {
@@ -191,6 +264,16 @@ watch(canUseImage, (val) => {
     uploadedImage.value = null
     imageUrlInput.value = ''
   }
+})
+
+const mapConversationMessage = (message: ConversationMessage): ChatMessage => ({
+  id: message.messageId,
+  messageId: message.messageId,
+  role: message.role,
+  content: message.content || '',
+  imageUrls: message.imageUrls,
+  imageUrl: message.imageUrls?.[0],
+  createdAt: message.createdAt,
 })
 
 const fetchModels = async () => {
@@ -212,6 +295,71 @@ const fetchModels = async () => {
     ElMessage.error('获取模型列表失败');
   }
 };
+
+const loadRecentConversations = async () => {
+  if (!authStore.sessionAccessKey) return
+  conversationLoading.value = true
+  try {
+    const list = await fetchRecentConversations(30)
+    conversations.value = list
+  } catch {
+    ElMessage.error('获取最近会话失败')
+  } finally {
+    conversationLoading.value = false
+  }
+}
+
+const loadConversationMessages = async (conversationId: string) => {
+  if (!authStore.sessionAccessKey) {
+    isKeyModalVisible.value = true
+    return
+  }
+  messagesLoading.value = true
+  messages.value = []
+  isResponding.value = false
+  try {
+    const history = await fetchConversationMessages(conversationId, { limit: 50 })
+    messages.value = history.map(mapConversationMessage)
+    scrollToBottom()
+  } catch {
+    ElMessage.error('拉取会话消息失败')
+  } finally {
+    messagesLoading.value = false
+  }
+}
+
+const selectConversation = async (conversation: ConversationSummary) => {
+  if (isResponding.value) {
+    ElMessage.warning('请等待当前回复结束后再切换会话')
+    return
+  }
+  if (!authStore.sessionAccessKey) {
+    isKeyModalVisible.value = true
+    ElMessage.warning('请先设置 Access Key')
+    return
+  }
+  if (conversation.conversationId === currentConversationId.value && messages.value.length > 0) {
+    return
+  }
+  currentConversationId.value = conversation.conversationId
+  if (conversation.lastModelIdentifier && conversation.lastModelIdentifier !== selectedModel.value) {
+    const matched = models.value.find((m) => m.modelIdentifier === conversation.lastModelIdentifier)
+    if (matched) {
+      selectedModel.value = matched.modelIdentifier
+    }
+  }
+  await loadConversationMessages(conversation.conversationId)
+}
+
+const startNewConversation = () => {
+  if (isResponding.value) {
+    ElMessage.warning('请等待当前回复结束后再新建会话')
+    return
+  }
+  currentConversationId.value = ''
+  messages.value = []
+  messagesLoading.value = false
+}
 
 const handleImageUpload = (options: any) => {
   if (!canUseImage.value) {
@@ -243,8 +391,35 @@ const applyImageUrl = () => {
   uploadedImage.value = imageUrlInput.value.trim()
 }
 
+const toOpenAiMessage = (message: ChatMessage): OpenAiMessage => {
+  const content: any[] = []
+  if (message.content) {
+    content.push({ type: 'text', text: message.content })
+  }
+  const urls = message.imageUrls?.length ? message.imageUrls : message.imageUrl ? [message.imageUrl] : []
+  urls.forEach((url) => {
+    content.push({ type: 'image_url', image_url: { url } })
+  })
+  if (content.length === 0) {
+    content.push({ type: 'text', text: '' })
+  }
+  return { role: message.role, content }
+}
+
+const extractTextContent = (content: any) => {
+  if (!content) return ''
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    const textPart = content.find((part) => part.type === 'text')
+    if (textPart && typeof textPart.text === 'string') {
+      return textPart.text
+    }
+  }
+  return ''
+}
+
 const handleSend = async () => {
-  if ((!userInput.value.trim() && !uploadedImage.value) || isResponding.value) return
+  if ((!userInput.value.trim() && !uploadedImage.value) || isResponding.value || messagesLoading.value) return
   if (!authStore.sessionAccessKey) {
     ElMessage.warning('请先设置 Access Key')
     isKeyModalVisible.value = true
@@ -254,12 +429,18 @@ const handleSend = async () => {
     ElMessage.warning('当前模型不支持图片输入')
     return
   }
+  if (!selectedModel.value) {
+    ElMessage.warning('请先选择模型')
+    return
+  }
 
+  const imageSource = uploadedImage.value || undefined
   const userMessage: ChatMessage = {
     id: uuidv4(),
     role: 'user',
     content: userInput.value,
-    imageUrl: uploadedImage.value || undefined
+    imageUrl: imageSource,
+    imageUrls: imageSource ? [imageSource] : undefined,
   }
   messages.value.push(userMessage)
 
@@ -273,52 +454,24 @@ const handleSend = async () => {
   isResponding.value = true
   userInput.value = ''
   uploadedImage.value = null
+  imageUrlInput.value = ''
 
   try {
-    const apiMessages: OpenAiMessage[] = messages.value
-      .slice(0, -1) // Exclude the empty assistant message
-      .map(m => {
-        const content: any = [];
-        if (m.content) {
-          content.push({ type: 'text', text: m.content });
-        }
-        if (m.imageUrl) {
-          content.push({ type: 'image_url', image_url: { url: m.imageUrl } });
-        }
-        
-        // Ensure content is not empty
-        if (content.length === 0) {
-            content.push({ type: 'text', text: '' });
-        }
-
-        // If there's only an image, the content for OpenAI should be an array.
-        // If there's only text, it can be a string. Let's keep it consistent as an array.
-        return { role: m.role, content };
-      });
-
-
     const response = await chatCompletion(
       {
         model: selectedModel.value,
-        messages: apiMessages,
+        messages: [toOpenAiMessage(userMessage)],
         stream: false,
+        persist_history: true,
+        conversation_id: currentConversationId.value || undefined,
       },
       authStore.sessionAccessKey
     )
 
-    const content = response.choices?.[0]?.message?.content
-    let textContent = ''
-
-    if (content) {
-      if (typeof content === 'string') {
-        textContent = content
-      } else if (Array.isArray(content)) {
-        const textPart = content.find(part => part.type === 'text')
-        if (textPart && typeof textPart.text === 'string') {
-          textContent = textPart.text
-        }
-      }
+    if (response.conversation_id) {
+      currentConversationId.value = response.conversation_id
     }
+    const textContent = extractTextContent(response.choices?.[0]?.message?.content)
     
     if (textContent) {
       const lastMsg = messages.value[messages.value.length - 1]
@@ -332,6 +485,7 @@ const handleSend = async () => {
           lastMsg.content += '\n\n**请求失败: 无有效内容**'
       }
     }
+    loadRecentConversations()
   } catch (error: any) {
     ElMessage.error('请求 AI 聊天失败: ' + (error.message || '未知错误'))
     const lastMsg = messages.value[messages.value.length - 1]
@@ -348,13 +502,16 @@ const handleSetKey = () => {
     authStore.setSessionAccessKey(sessionKeyInput.value.trim())
     isKeyModalVisible.value = false
     ElMessage.success('Access Key 已设置')
+    loadRecentConversations()
   }
 }
 
 onMounted(() => {
   fetchModels()
   authStore.ensureSessionAccessKey().then((key) => {
-    if (!key) {
+    if (key) {
+      loadRecentConversations()
+    } else {
       isKeyModalVisible.value = true
     }
   })
@@ -412,6 +569,88 @@ onMounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.68);
+}
+
+.chat-view__history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chat-view__history-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.chat-view__history-empty {
+  text-align: center;
+  padding: 20px 10px;
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.conversation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.conversation-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.conversation-item:hover {
+  border-color: rgba(96, 165, 250, 0.8);
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.conversation-item--active {
+  border-color: #60a5fa;
+  background: linear-gradient(130deg, rgba(59, 130, 246, 0.16), rgba(14, 165, 233, 0.16));
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.22);
+}
+
+.conversation-item__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.conversation-item__title {
+  color: #e5e7ff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.conversation-item__badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #dbeafe;
+  font-size: 11px;
+}
+
+.conversation-item__summary {
+  margin: 6px 0 6px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+}
+
+.conversation-item__meta {
+  display: flex;
+  justify-content: space-between;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 12px;
 }
 
 .chat-view__main {
@@ -526,6 +765,22 @@ onMounted(() => {
     #f8fafc;
 }
 
+.message-list__loading,
+.message-list__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--app-muted);
+  min-height: 120px;
+}
+
+.message-list__empty p {
+  margin: 0;
+  color: var(--app-muted);
+}
+
 .message-item {
   display: flex;
   gap: 12px;
@@ -541,6 +796,12 @@ onMounted(() => {
   max-width: 72%;
   display: grid;
   gap: 8px;
+}
+
+.message-item__images {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .message-item__bubble {

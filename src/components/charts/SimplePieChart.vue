@@ -43,16 +43,41 @@ const props = defineProps<{
 
 const palette = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#f97316', '#8b5cf6', '#ef4444']
 
+const buildFullCirclePath = (radius: number) =>
+  ['M 0 0', `L 0 ${-radius}`, `A ${radius} ${radius} 0 1 1 0 ${radius}`, `A ${radius} ${radius} 0 1 1 0 ${-radius}`, 'Z'].join(
+    ' ',
+  )
+
 const slices = computed(() => {
-  const total = props.data.reduce((sum, item) => sum + Math.max(item.value, 0), 0)
+  const normalized = props.data
+    .map((item) => ({ ...item, value: Math.max(item.value, 0) }))
+    .filter((item) => item.value > 0)
+
+  const total = normalized.reduce((sum, item) => sum + item.value, 0)
   if (!total) return []
+
+  const radius = 130
+  const singleSlice = normalized.length === 1
+
+  if (singleSlice) {
+    const item = normalized[0]
+    const color = item.color ?? palette[0]
+    return [
+      {
+        label: item.label,
+        value: item.value,
+        color,
+        percent: '100.0',
+        d: buildFullCirclePath(radius),
+      },
+    ]
+  }
+
   let startAngle = -Math.PI / 2
 
-  return props.data.map((item, index) => {
-    const value = Math.max(item.value, 0)
-    const angle = (value / total) * Math.PI * 2
+  return normalized.map((item, index) => {
+    const angle = (item.value / total) * Math.PI * 2
     const endAngle = startAngle + angle
-    const radius = 130
     const startX = Math.cos(startAngle) * radius
     const startY = Math.sin(startAngle) * radius
     const endX = Math.cos(endAngle) * radius
@@ -68,9 +93,9 @@ const slices = computed(() => {
     startAngle = endAngle
     return {
       label: item.label,
-      value: value,
+      value: item.value,
       color,
-      percent: ((value / total) * 100).toFixed(1),
+      percent: ((item.value / total) * 100).toFixed(1),
       d: pathData,
     }
   })

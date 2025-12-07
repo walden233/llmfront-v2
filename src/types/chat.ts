@@ -6,9 +6,12 @@ export interface ChatMessage {
   role: ChatMessageRole
   content: string
   imageUrl?: string
+  imageUrls?: string[]
+  messageId?: string
   // For UI state
   id?: string
   loading?: boolean
+  createdAt?: string
 }
 
 export interface OpenAiMessageContent {
@@ -26,6 +29,7 @@ export interface OpenAiMessage {
   name?: string
   tool_call_id?: string
   tool_calls?: any[] // Simplified for now
+  conversation_id?: string
 }
 
 export interface ChatCompletionRequest {
@@ -35,6 +39,10 @@ export interface ChatCompletionRequest {
   top_p?: number
   max_tokens?: number
   stream?: boolean
+  conversation_id?: string
+  persist_history?: boolean
+  metadata?: Record<string, any>
+  extra_params?: Record<string, any>
   // ... other options from the spec
 }
 
@@ -65,4 +73,5 @@ export interface OpenAiChatResponse {
   choices: OpenAiChatCompletionChoice[]
   usage: OpenAiUsage
   system_fingerprint?: string
+  conversation_id?: string
 }

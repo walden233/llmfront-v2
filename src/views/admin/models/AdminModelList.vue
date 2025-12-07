@@ -12,6 +12,11 @@
         <el-table-column prop="displayName" label="模型名称" width="200" />
         <el-table-column prop="modelIdentifier" label="模型标识" width="200" />
         <el-table-column prop="providerName" label="提供商" width="150" />
+        <el-table-column label="模型价格" min-width="240">
+          <template #default="{ row }">
+            <span class="pricing-json">{{ formatPricing(row.pricing) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="priority" label="优先级" width="100" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
@@ -193,6 +198,15 @@ onMounted(() => {
   fetchModels()
   fetchProviders()
 })
+
+const formatPricing = (pricing: Model['pricing']) => {
+  if (!pricing) return '-'
+  try {
+    return typeof pricing === 'string' ? pricing : JSON.stringify(pricing)
+  } catch {
+    return '-'
+  }
+}
 </script>
 
 <style scoped>
@@ -203,5 +217,9 @@ onMounted(() => {
 }
 .mt-4 {
   margin-top: 16px;
+}
+.pricing-json {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  word-break: break-all;
 }
 </style>
